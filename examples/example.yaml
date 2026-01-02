@@ -1,0 +1,50 @@
+esphome:
+  name: elv-am-ors
+  friendly_name: ELV AM-ORS
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: arduino
+
+external_components:
+  - source:
+      type: local
+      path: ./components
+
+logger:
+
+api:
+ota:
+
+wifi:
+  ssid: "WLAN_NAME"
+  password: "WLAN_PASSWORT"
+
+i2c:
+  sda: GPIO1
+  scl: GPIO2
+  scan: true
+
+sensor:
+  - platform: elv_am_ors
+    update_interval: 5s
+
+    # UV (AS7331)
+    uva:
+      name: "ELV UV-A"
+    uvb:
+      name: "ELV UV-B"
+    uvc:
+      name: "ELV UV-C"
+    uv_index:
+      name: "ELV UV-Index"
+
+    # Beleuchtungsstärke (OPT3001)
+    illuminance:
+      name: "ELV Beleuchtungsstärke"
+
+    # Bestrahlungsstärke (IRRA-ADC)
+    irradiance:
+      name: "ELV Bestrahlungsstärke"
+    irra_adc_pin: GPIO3
