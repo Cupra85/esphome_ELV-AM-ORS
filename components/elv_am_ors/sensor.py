@@ -1,74 +1,125 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import i2c, sensor
-from esphome.const import CONF_ID, STATE_CLASS_MEASUREMENT
+from esphome.const import (
+    CONF_ID,
+    CONF_ADDRESS,
+    CONF_UPDATE_INTERVAL,
+    DEVICE_CLASS_ILLUMINANCE,
+    ICON_FLASH,
+    ICON_WEATHER_SUNNY,
+    STATE_CLASS_MEASUREMENT,
+    UNIT_LUX,
+)
 
-# Sensor keys
+CODEOWNERS = ["@your-github-handle"]
+DEPENDENCIES = ["i2c"]
+AUTO_LOAD = ["sensor"]
+
+elv_am_ors_ns = cg.esphome_ns.namespace("elv_am_ors")
+ELVAMORS = elv_am_ors_ns.class_("ELVAMORS", cg.PollingComponent, i2c.I2CDevice)
+
+UNIT_W_M2 = "W/m²"
+
+CONF_AS7331_ADDRESS = "as7331_address"
+CONF_OPT3001_ADDRESS = "opt3001_address"
+
+CONF_GAIN = "as7331_gain"
+CONF_INTEGRATION_TIME = "as7331_integration_time"
+
+CONF_IRRA_ADC_PIN = "irra_adc_pin"
+CONF_IRRA_ADC_REF_VOLTAGE = "irra_adc_ref_voltage"
+CONF_IRRA_ADC_RESOLUTION = "irra_adc_resolution"
+CONF_IRRA_SLOPE = "irra_slope_w_per_m2_per_v"
+CONF_IRRA_OFFSET = "irra_offset_v"
+
 CONF_UVA = "uva"
 CONF_UVB = "uvb"
 CONF_UVC = "uvc"
-CONF_UV_INDEX = "uv_index"
-CONF_ILLUMINANCE = "illuminance"
+CONF_UVI = "uvi"
 CONF_IRRADIANCE = "irradiance"
-CONF_IRRA_ADC_PIN = "irra_adc_pin"
+CONF_ILLUMINANCE = "illuminance"
 
-# ADC1 GPIO → Channel mapping (ESP32-S3)
-ADC1_CHANNEL_MAP = {
-    "GPIO1": 0,
-    "GPIO2": 1,
-    "GPIO3": 2,   # BOOT-Pin beim S3 SuperMini → nicht Default!
-    "GPIO4": 3,   # ✅ neuer Default
-    "GPIO5": 4,
-    "GPIO6": 5,
-    "GPIO7": 6,
-    "GPIO8": 7,
+GAIN_MAP = {
+    2048: 0, 1024: 1, 512: 2, 256: 3, 128: 4, 64: 5,
+    32: 6, 16: 7, 8: 8, 4: 9, 2: 10, 1: 11
 }
 
-elv_ns = cg.esphome_ns.namespace("elv_am_ors")
-ELVAMORS = elv_ns.class_("ELVAMORS", cg.PollingComponent, i2c.I2CDevice)
+INTEGRATION_TIME_MS_TO_CODE = {
+    1: 0, 2: 1, 4: 2, 8: 3, 16: 4, 32: 5, 64: 6, 128: 7,
+    256: 8, 512: 9, 1024: 10, 2048: 11, 4096: 12, 8192: 13, 16384: 14,
+    # TIME=15 is documented as 1ms again on AS7331.
+}
+
+def _validate_gain(value):
+    value = cv.int_(value)
+    if value not in GAIN_MAP:
+        raise cv.Invalid("as7331_gain must be one of: " + ", ".join(str(k) for k in sorted(GAIN_MAP.keys(), reverse=True)))
+    return value
+
+def _validate_integration_time(value):
+    value = cv.int_(value)
+    if value not in INTEGRATION_TIME_MS_TO_CODE:
+        raise cv.Invalid("as7331_integration_time must be one of: " + ", ".join(str(k) for k in sorted(INTEGRATION_TIME_MS_TO_CODE.keys())))
+    return value
 
 CONFIG_SCHEMA = (
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(ELVAMORS),
 
+            cv.Optional(CONF_AS7331_ADDRESS, default=0x77): cv.hex_int,
+            cv.Optional(CONF_OPT3001_ADDRESS, default=0x45): cv.hex_int,
+
+            cv.Optional(CONF_GAIN, default=2048): _validate_gain,
+            cv.Optional(CONF_INTEGRATION_TIME, default=64): _validate_integration_time,
+
+            cv.Optional(CONF_IRRA_ADC_PIN, default=4): cv.int_range(min=0, max=48),
+            cv.Optional(CONF_IRRA_ADC_REF_VOLTAGE, default=3.3): cv.float_range(min=1.0, max=5.5),
+            cv.Optional(CONF_IRRA_ADC_RESOLUTION, default=4095): cv.int_range(min=255, max=65535),
+            cv.Optional(CONF_IRRA_SLOPE, default=400.0): cv.float_,
+            cv.Optional(CONF_IRRA_OFFSET, default=0.115): cv.float_,
+
             cv.Optional(CONF_UVA): sensor.sensor_schema(
-                unit_of_measurement="W/m²",
+                unit_of_measurement=UNIT_W_M2,
                 accuracy_decimals=3,
                 state_class=STATE_CLASS_MEASUREMENT,
+                icon=ICON_WEATHER_SUNNY,
             ),
             cv.Optional(CONF_UVB): sensor.sensor_schema(
-                unit_of_measurement="W/m²",
+                unit_of_measurement=UNIT_W_M2,
                 accuracy_decimals=3,
                 state_class=STATE_CLASS_MEASUREMENT,
+                icon=ICON_WEATHER_SUNNY,
             ),
             cv.Optional(CONF_UVC): sensor.sensor_schema(
-                unit_of_measurement="W/m²",
+                unit_of_measurement=UNIT_W_M2,
                 accuracy_decimals=3,
                 state_class=STATE_CLASS_MEASUREMENT,
+                icon=ICON_WEATHER_SUNNY,
             ),
-            cv.Optional(CONF_UV_INDEX): sensor.sensor_schema(
+            cv.Optional(CONF_UVI): sensor.sensor_schema(
+                unit_of_measurement="",
                 accuracy_decimals=2,
                 state_class=STATE_CLASS_MEASUREMENT,
+                icon=ICON_WEATHER_SUNNY,
             ),
             cv.Optional(CONF_ILLUMINANCE): sensor.sensor_schema(
-                unit_of_measurement="lx",
+                unit_of_measurement=UNIT_LUX,
                 accuracy_decimals=1,
+                device_class=DEVICE_CLASS_ILLUMINANCE,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
             cv.Optional(CONF_IRRADIANCE): sensor.sensor_schema(
-                unit_of_measurement="W/m²",
+                unit_of_measurement=UNIT_W_M2,
                 accuracy_decimals=1,
                 state_class=STATE_CLASS_MEASUREMENT,
+                icon=ICON_FLASH,
             ),
-
-            # Default jetzt GPIO4 (NICHT GPIO3)
-            cv.Optional(CONF_IRRA_ADC_PIN, default="GPIO4"):
-                cv.one_of(*ADC1_CHANNEL_MAP.keys(), upper=True),
         }
     )
-    .extend(cv.polling_component_schema("5s"))
-    .extend(i2c.i2c_device_schema(0x77))
+    .extend(cv.polling_component_schema("60s"))
+    .extend(i2c.i2c_device_schema(0x77))  # bus only; address is set dynamically in C++
 )
 
 async def to_code(config):
@@ -76,17 +127,37 @@ async def to_code(config):
     await cg.register_component(var, config)
     await i2c.register_i2c_device(var, config)
 
-    adc_channel = ADC1_CHANNEL_MAP[config[CONF_IRRA_ADC_PIN]]
-    cg.add(var.set_irra_adc_channel(adc_channel))
+    cg.add(var.set_as7331_address(config[CONF_AS7331_ADDRESS]))
+    cg.add(var.set_opt3001_address(config[CONF_OPT3001_ADDRESS]))
 
-    for key in (
-        CONF_UVA,
-        CONF_UVB,
-        CONF_UVC,
-        CONF_UV_INDEX,
-        CONF_ILLUMINANCE,
-        CONF_IRRADIANCE,
-    ):
-        if key in config:
-            sens = await sensor.new_sensor(config[key])
-            cg.add(getattr(var, f"set_{key}_sensor")(sens))
+    cg.add(var.set_as7331_gain_code(GAIN_MAP[config[CONF_GAIN]]))
+    cg.add(var.set_as7331_time_code(INTEGRATION_TIME_MS_TO_CODE[config[CONF_INTEGRATION_TIME]]))
+
+    cg.add(var.set_irra_adc_pin(config[CONF_IRRA_ADC_PIN]))
+    cg.add(var.set_irra_adc_ref_voltage(config[CONF_IRRA_ADC_REF_VOLTAGE]))
+    cg.add(var.set_irra_adc_resolution(config[CONF_IRRA_ADC_RESOLUTION]))
+    cg.add(var.set_irra_calibration(config[CONF_IRRA_SLOPE], config[CONF_IRRA_OFFSET]))
+
+    if CONF_UVA in config:
+        sens = await sensor.new_sensor(config[CONF_UVA])
+        cg.add(var.set_uva_sensor(sens))
+
+    if CONF_UVB in config:
+        sens = await sensor.new_sensor(config[CONF_UVB])
+        cg.add(var.set_uvb_sensor(sens))
+
+    if CONF_UVC in config:
+        sens = await sensor.new_sensor(config[CONF_UVC])
+        cg.add(var.set_uvc_sensor(sens))
+
+    if CONF_UVI in config:
+        sens = await sensor.new_sensor(config[CONF_UVI])
+        cg.add(var.set_uvi_sensor(sens))
+
+    if CONF_ILLUMINANCE in config:
+        sens = await sensor.new_sensor(config[CONF_ILLUMINANCE])
+        cg.add(var.set_illuminance_sensor(sens))
+
+    if CONF_IRRADIANCE in config:
+        sens = await sensor.new_sensor(config[CONF_IRRADIANCE])
+        cg.add(var.set_irradiance_sensor(sens))
