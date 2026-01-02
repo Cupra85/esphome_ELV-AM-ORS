@@ -1,10 +1,10 @@
 #pragma once
 
 #include "esphome/core/component.h"
-#include "esphome/core/gpio.h"
 #include "esphome/components/i2c/i2c.h"
 #include "esphome/components/sensor/sensor.h"
 #include "driver/adc.h"
+#include "esp_adc_cal.h"
 
 namespace esphome {
 namespace elv_am_ors {
@@ -17,7 +17,8 @@ class ELVAMORS : public PollingComponent, public i2c::I2CDevice {
   void set_uv_index_sensor(sensor::Sensor *s) { uv_index_ = s; }
   void set_illuminance_sensor(sensor::Sensor *s) { illuminance_ = s; }
   void set_irradiance_sensor(sensor::Sensor *s) { irradiance_ = s; }
-  void set_irra_adc_pin(GPIOPin *pin) { irra_adc_pin_ = pin; }
+
+  void set_irra_adc_channel(uint8_t ch) { irra_adc_channel_ = ch; }
 
   void setup() override;
   void update() override;
@@ -30,8 +31,9 @@ class ELVAMORS : public PollingComponent, public i2c::I2CDevice {
   sensor::Sensor *illuminance_{nullptr};
   sensor::Sensor *irradiance_{nullptr};
 
-  GPIOPin *irra_adc_pin_{nullptr};
-  adc1_channel_t irra_adc_channel_;
+  uint8_t irra_adc_channel_{3};  // Default GPIO4 → ADC1_CHANNEL_3
+  esp_adc_cal_characteristics_t adc_chars_;
+  bool adc_calibrated_{false};
 
   bool read_uv_(float &uva, float &uvb, float &uvc);
   bool read_illuminance_(float &lux);
