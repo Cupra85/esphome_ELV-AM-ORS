@@ -44,3 +44,4 @@ async def to_code(config):
     if "uvc" in config:
         sens = await sensor.new_sensor(config["uvc"])
         cg.add(var.set_uvc_sensor(sens))
+
