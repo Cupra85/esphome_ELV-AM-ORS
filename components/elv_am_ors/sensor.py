@@ -3,16 +3,10 @@ import esphome.config_validation as cv
 from esphome.components import i2c, sensor
 from esphome.const import (
     CONF_ID,
-    CONF_ADDRESS,
-    CONF_UPDATE_INTERVAL,
-    DEVICE_CLASS_ILLUMINANCE,
-    ICON_FLASH,
-    ICON_WEATHER_SUNNY,
     STATE_CLASS_MEASUREMENT,
     UNIT_LUX,
 )
 
-CODEOWNERS = ["@your-github-handle"]
 DEPENDENCIES = ["i2c"]
 AUTO_LOAD = ["sensor"]
 
@@ -21,9 +15,9 @@ ELVAMORS = elv_am_ors_ns.class_("ELVAMORS", cg.PollingComponent, i2c.I2CDevice)
 
 UNIT_W_M2 = "W/m²"
 
+# YAML keys
 CONF_AS7331_ADDRESS = "as7331_address"
 CONF_OPT3001_ADDRESS = "opt3001_address"
-
 CONF_GAIN = "as7331_gain"
 CONF_INTEGRATION_TIME = "as7331_integration_time"
 
@@ -37,8 +31,8 @@ CONF_UVA = "uva"
 CONF_UVB = "uvb"
 CONF_UVC = "uvc"
 CONF_UVI = "uvi"
-CONF_IRRADIANCE = "irradiance"
 CONF_ILLUMINANCE = "illuminance"
+CONF_IRRADIANCE = "irradiance"
 
 GAIN_MAP = {
     2048: 0, 1024: 1, 512: 2, 256: 3, 128: 4, 64: 5,
@@ -46,21 +40,27 @@ GAIN_MAP = {
 }
 
 INTEGRATION_TIME_MS_TO_CODE = {
-    1: 0, 2: 1, 4: 2, 8: 3, 16: 4, 32: 5, 64: 6, 128: 7,
-    256: 8, 512: 9, 1024: 10, 2048: 11, 4096: 12, 8192: 13, 16384: 14,
-    # TIME=15 is documented as 1ms again on AS7331.
+    1: 0, 2: 1, 4: 2, 8: 3, 16: 4, 32: 5, 64: 6,
+    128: 7, 256: 8, 512: 9, 1024: 10, 2048: 11,
+    4096: 12, 8192: 13, 16384: 14,
 }
 
 def _validate_gain(value):
     value = cv.int_(value)
     if value not in GAIN_MAP:
-        raise cv.Invalid("as7331_gain must be one of: " + ", ".join(str(k) for k in sorted(GAIN_MAP.keys(), reverse=True)))
+        raise cv.Invalid(
+            "as7331_gain must be one of: "
+            + ", ".join(str(k) for k in sorted(GAIN_MAP.keys(), reverse=True))
+        )
     return value
 
 def _validate_integration_time(value):
     value = cv.int_(value)
     if value not in INTEGRATION_TIME_MS_TO_CODE:
-        raise cv.Invalid("as7331_integration_time must be one of: " + ", ".join(str(k) for k in sorted(INTEGRATION_TIME_MS_TO_CODE.keys())))
+        raise cv.Invalid(
+            "as7331_integration_time must be one of: "
+            + ", ".join(str(k) for k in sorted(INTEGRATION_TIME_MS_TO_CODE.keys()))
+        )
     return value
 
 CONFIG_SCHEMA = (
@@ -77,49 +77,42 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_IRRA_ADC_PIN, default=4): cv.int_range(min=0, max=48),
             cv.Optional(CONF_IRRA_ADC_REF_VOLTAGE, default=3.3): cv.float_range(min=1.0, max=5.5),
             cv.Optional(CONF_IRRA_ADC_RESOLUTION, default=4095): cv.int_range(min=255, max=65535),
-            cv.Optional(CONF_IRRA_SLOPE, default=400.0): cv.float_,
             cv.Optional(CONF_IRRA_OFFSET, default=0.115): cv.float_,
+            cv.Optional(CONF_IRRA_SLOPE, default=400.0): cv.float_,
 
             cv.Optional(CONF_UVA): sensor.sensor_schema(
                 unit_of_measurement=UNIT_W_M2,
                 accuracy_decimals=3,
                 state_class=STATE_CLASS_MEASUREMENT,
-                icon=ICON_WEATHER_SUNNY,
             ),
             cv.Optional(CONF_UVB): sensor.sensor_schema(
                 unit_of_measurement=UNIT_W_M2,
                 accuracy_decimals=3,
                 state_class=STATE_CLASS_MEASUREMENT,
-                icon=ICON_WEATHER_SUNNY,
             ),
             cv.Optional(CONF_UVC): sensor.sensor_schema(
                 unit_of_measurement=UNIT_W_M2,
                 accuracy_decimals=3,
                 state_class=STATE_CLASS_MEASUREMENT,
-                icon=ICON_WEATHER_SUNNY,
             ),
             cv.Optional(CONF_UVI): sensor.sensor_schema(
-                unit_of_measurement="",
                 accuracy_decimals=2,
                 state_class=STATE_CLASS_MEASUREMENT,
-                icon=ICON_WEATHER_SUNNY,
             ),
             cv.Optional(CONF_ILLUMINANCE): sensor.sensor_schema(
                 unit_of_measurement=UNIT_LUX,
                 accuracy_decimals=1,
-                device_class=DEVICE_CLASS_ILLUMINANCE,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
             cv.Optional(CONF_IRRADIANCE): sensor.sensor_schema(
                 unit_of_measurement=UNIT_W_M2,
                 accuracy_decimals=1,
                 state_class=STATE_CLASS_MEASUREMENT,
-                icon=ICON_FLASH,
             ),
         }
     )
     .extend(cv.polling_component_schema("60s"))
-    .extend(i2c.i2c_device_schema(0x77))  # bus only; address is set dynamically in C++
+    .extend(i2c.i2c_device_schema(0x77))
 )
 
 async def to_code(config):
@@ -136,28 +129,19 @@ async def to_code(config):
     cg.add(var.set_irra_adc_pin(config[CONF_IRRA_ADC_PIN]))
     cg.add(var.set_irra_adc_ref_voltage(config[CONF_IRRA_ADC_REF_VOLTAGE]))
     cg.add(var.set_irra_adc_resolution(config[CONF_IRRA_ADC_RESOLUTION]))
-    cg.add(var.set_irra_calibration(config[CONF_IRRA_SLOPE], config[CONF_IRRA_OFFSET]))
+    cg.add(var.set_irra_calibration(
+        config[CONF_IRRA_SLOPE],
+        config[CONF_IRRA_OFFSET],
+    ))
 
-    if CONF_UVA in config:
-        sens = await sensor.new_sensor(config[CONF_UVA])
-        cg.add(var.set_uva_sensor(sens))
-
-    if CONF_UVB in config:
-        sens = await sensor.new_sensor(config[CONF_UVB])
-        cg.add(var.set_uvb_sensor(sens))
-
-    if CONF_UVC in config:
-        sens = await sensor.new_sensor(config[CONF_UVC])
-        cg.add(var.set_uvc_sensor(sens))
-
-    if CONF_UVI in config:
-        sens = await sensor.new_sensor(config[CONF_UVI])
-        cg.add(var.set_uvi_sensor(sens))
-
-    if CONF_ILLUMINANCE in config:
-        sens = await sensor.new_sensor(config[CONF_ILLUMINANCE])
-        cg.add(var.set_illuminance_sensor(sens))
-
-    if CONF_IRRADIANCE in config:
-        sens = await sensor.new_sensor(config[CONF_IRRADIANCE])
-        cg.add(var.set_irradiance_sensor(sens))
+    for key, setter in (
+        (CONF_UVA, var.set_uva_sensor),
+        (CONF_UVB, var.set_uvb_sensor),
+        (CONF_UVC, var.set_uvc_sensor),
+        (CONF_UVI, var.set_uvi_sensor),
+        (CONF_ILLUMINANCE, var.set_illuminance_sensor),
+        (CONF_IRRADIANCE, var.set_irradiance_sensor),
+    ):
+        if key in config:
+            sens = await sensor.new_sensor(config[key])
+            cg.add(setter(sens))
