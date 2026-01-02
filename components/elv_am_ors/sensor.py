@@ -2,7 +2,6 @@ import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import i2c, sensor
 from esphome.const import CONF_ID, STATE_CLASS_MEASUREMENT
-from esphome import pins
 
 # Sensor keys
 CONF_UVA = "uva"
@@ -13,11 +12,21 @@ CONF_ILLUMINANCE = "illuminance"
 CONF_IRRADIANCE = "irradiance"
 CONF_IRRA_ADC_PIN = "irra_adc_pin"
 
-# Namespace
+# ADC1 GPIO → Channel mapping (ESP32-S3)
+ADC1_CHANNEL_MAP = {
+    "GPIO1": 0,
+    "GPIO2": 1,
+    "GPIO3": 2,   # BOOT-Pin beim S3 SuperMini → nicht Default!
+    "GPIO4": 3,   # ✅ neuer Default
+    "GPIO5": 4,
+    "GPIO6": 5,
+    "GPIO7": 6,
+    "GPIO8": 7,
+}
+
 elv_ns = cg.esphome_ns.namespace("elv_am_ors")
 ELVAMORS = elv_ns.class_("ELVAMORS", cg.PollingComponent, i2c.I2CDevice)
 
-# Configuration schema
 CONFIG_SCHEMA = (
     cv.Schema(
         {
@@ -53,30 +62,23 @@ CONFIG_SCHEMA = (
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
 
-            # ADC pin for irradiance (default GPIO3)
-            cv.Optional(
-                CONF_IRRA_ADC_PIN,
-                default="GPIO3",
-            ): pins.internal_gpio_input_pin_schema,
+            # Default jetzt GPIO4 (NICHT GPIO3)
+            cv.Optional(CONF_IRRA_ADC_PIN, default="GPIO4"):
+                cv.one_of(*ADC1_CHANNEL_MAP.keys(), upper=True),
         }
     )
     .extend(cv.polling_component_schema("5s"))
     .extend(i2c.i2c_device_schema(0x77))
 )
 
-# Code generation
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-
     await cg.register_component(var, config)
     await i2c.register_i2c_device(var, config)
 
-    # ADC pin
-    if CONF_IRRA_ADC_PIN in config:
-        pin = await cg.gpio_pin_expression(config[CONF_IRRA_ADC_PIN])
-        cg.add(var.set_irra_adc_pin(pin))
+    adc_channel = ADC1_CHANNEL_MAP[config[CONF_IRRA_ADC_PIN]]
+    cg.add(var.set_irra_adc_channel(adc_channel))
 
-    # Optional sensors
     for key in (
         CONF_UVA,
         CONF_UVB,
